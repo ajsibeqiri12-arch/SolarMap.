@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <title>Paneli Im | SolarMap</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+    <nav>
+        <h2>SolarMap AL</h2>
+        <div>
+            <span>Mirësevjen, {{ name }}!</span>
+            <a href="/logout">Dil</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="main-grid">
+            <div class="form-card">
+                <label>Adresa</label>
+                <input type="text" id="address" placeholder="p.sh. Shkodër">
+                
+                <label>Lloji</label>
+                <select id="user_type" style="width:100%; padding:10px; margin-bottom:10px;">
+                    <option value="household">Shtëpi</option>
+                    <option value="business">Biznes</option>
+                </select>
+
+                <label>Sipërfaqja (m²)</label>
+                <input type="number" id="roof" value="80">
+                
+                <button onclick="analyze()" style="width:100%; padding:12px; background:#1D9E75; color:white; border:none; border-radius:8px; cursor:pointer;">Analizo</button>
+                
+                <div id="results" class="hidden" style="margin-top:20px;">
+                    <div class="metrics-grid">
+                        <div class="metric"><span id="kwh">0</span><small>kWh/vit</small></div>
+                        <div class="metric">€<span id="savings">0</span><small>kursim</small></div>
+                        <div class="metric"><span id="payback">0</span><small>vite</small></div>
+                        <div class="metric"><span id="co2">0</span><small>pemë</small></div>
+                    </div>
+                </div>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([41.33, 19.82], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var marker = null;
+
+        function analyze() {
+            const addr = document.getElementById('address').value;
+            const roof = document.getElementById('roof').value;
+            const type = document.getElementById('user_type').value;
+
+            fetch(`/analyze?address=${encodeURIComponent(addr)}&roof_m2=${roof}&type=${type}`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.error) { alert(data.error); return; }
+                    document.getElementById('results').classList.remove('hidden');
+                    document.getElementById('kwh').innerText = data.annual_kwh.toLocaleString();
+                    document.getElementById('savings').innerText = data.savings_eur.toLocaleString();
+                    document.getElementById('payback').innerText = data.payback_years;
+                    document.getElementById('co2').innerText = Math.round(data.co2_kg / 20);
+
+                    map.setView([data.lat, data.lon], 15);
+                    if (marker) map.removeLayer(marker);
+                    marker = L.marker([data.lat, data.lon]).addTo(map);
+                });
+        }
+    </script>
+</body>
+</html>

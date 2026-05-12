@@ -1,0 +1,98 @@
+
+
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolarMap Albania</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+
+  <header>
+    <h1>SolarMap Albania</h1>
+    <p>Zbulo potencialin diellor të çatisë tënde</p>
+  </header>
+
+  <main>
+    <div class="form-card">
+      <label>Adresa</label>
+      <input type="text" id="address" placeholder="p.sh. Rruga e Kavajës 10, Tiranë" />
+
+      <label>Sipërfaqja e çatisë (m²)</label>
+      <input type="number" id="roof" value="80" min="10" max="2000" />
+
+      <button onclick="analyze()">Analizo</button>
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="metrics">
+        <div class="metric">
+          <span class="val" id="kwh">—</span>
+          <span class="lbl">kWh / vit</span>
+        </div>
+        <div class="metric">
+          <span class="val" id="savings">—</span>
+          <span class="lbl">€ kursim / vit</span>
+        </div>
+        <div class="metric">
+          <span class="val" id="co2">—</span>
+          <span class="lbl">kg CO₂ kursuar</span>
+        </div>
+        <div class="metric">
+          <span class="val" id="payback">—</span>
+          <span class="lbl">vite rikuperim</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="map"></div>
+    <div id="error" class="error hidden"></div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([41.33, 19.82], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    var marker = null;
+
+    function analyze() {
+      var address = document.getElementById('address').value;
+      var roof = document.getElementById('roof').value;
+
+      document.getElementById('error').classList.add('hidden');
+      document.querySelector('button').textContent = 'Duke analizuar...';
+
+      fetch('/analyze?address=' + encodeURIComponent(address) + '&roof_m2=' + roof)
+        .then(r => r.json())
+        .then(data => {
+          document.querySelector('button').textContent = 'Analizo';
+
+          if (data.error) {
+            document.getElementById('error').textContent = data.error;
+            document.getElementById('error').classList.remove('hidden');
+            return;
+          }
+
+          document.getElementById('kwh').textContent = data.annual_kwh.toLocaleString();
+          document.getElementById('savings').textContent = '€' + data.savings_eur.toLocaleString();
+          document.getElementById('co2').textContent = data.co2_kg.toLocaleString();
+          document.getElementById('payback').textContent = data.payback_years;
+          document.getElementById('results').classList.remove('hidden');
+
+          map.setView([data.lat, data.lon], 14);
+          if (marker) map.removeLayer(marker);
+          marker = L.marker([data.lat, data.lon])
+            .addTo(map)
+            .bindPopup('<b>' + address + '</b><br>Kursim: €' + data.savings_eur + '/vit')
+            .openPopup();
+        });
+    }
+  </script>
+</body>
+</html>
